@@ -11,6 +11,11 @@ Data:
 
 import gpu          # Simula os recursos de uma GPU
 
+class ponto():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
 # web3d.org/documents/specifications/19775-1/V3.0/Part01/components/geometry2D.html#Polypoint2D
 def polypoint2D(point, colors):
     """Função usada para renderizar Polypoint2D."""
@@ -21,12 +26,21 @@ def polypoint2D(point, colors):
     # pelo tamanho da lista e assuma que sempre vira uma quantidade par de valores.
     # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polypoint2D
     # você pode assumir o desenho dos pontos com a cor emissiva (emissiveColor).
+    points = []
+    print(list(colors.values()))
+    i = 0
+    while i < len(point):
+        points.append(ponto(point[i], point[i+1]))
+        i+=2
+    for p in points:
+        print(p.x,p.y)
+        gpu.GPU.set_pixel(int(p.x), int(p.y), int(colors["emissiveColor"][0]*255),int(colors["emissiveColor"][1]*255) ,int(colors["emissiveColor"][2]*255))
 
     # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-    print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
-    print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
+    # print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
+    # print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
     # Exemplo:
-    gpu.GPU.set_pixel(3, 1, 255, 0, 0) # altera um pixel da imagem (u, v, r, g, b)
+    # gpu.GPU.set_pixel(3, 1, 255, 0, 0) # altera um pixel da imagem (u, v, r, g, b)
     # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
 
 # web3d.org/documents/specifications/19775-1/V3.0/Part01/components/geometry2D.html#Polyline2D
