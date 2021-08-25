@@ -10,12 +10,150 @@ Data:
 """
 
 import gpu          # Simula os recursos de uma GPU
+import math
 
-class ponto():
+def CollectPoints(point):
+    points = []
+    i = 0
+    while i < len(point):
+        points.append(ponto(point[i], point[i+1]))
+        i+= 2
+    return points
+
+class ponto(): # Usarei essa classe para facilitar o gerenciamento de pontos (WIP)
     def __init__(self, x, y):
         self.x = x
         self.y = y
+    
+    def Info(self):
+        print(f"Ponto ({self.x}, {self.y})")
 
+class segmento(): # Classe que representa um segmento, utilizada principalmente para identificar qual lado um ponto esta
+    def __init__(self, pontoA, pontoB):
+        self.begin = pontoA
+        self.end = pontoB
+    
+    def GetDistance(self):
+        return math.abs(math.sqrt((self.end.x - self.begin.x) + (self.end.y - self.begin.y)))
+
+    def GetSign(self, ponto):
+        return (ponto.x - self.end.x) * (self.begin.y - self.end.y) - (self.begin.x - self.end.x) * (ponto.y - self.end.y)
+    
+    def GetAngularCoef(self):
+        if(self.end.x == self.begin.x): return 0
+        return (self.end.y - self.begin.y)/(self.end.x - self.begin.x)
+    
+    def GetPixelsStraight(self, pixels, ca):
+        passo = 1
+        if self.begin.y == self.end.y:
+            # Constante em y
+            if(self.end.x - self.begin.x < 0):
+                passo = -1
+            for x in range(int(self.begin.x), int(self.end.x), passo):
+                pixels.append(ponto(x, self.begin.y))
+        else:
+            # Constante em x
+            if(self.end.y - self.begin.y < 0):
+                passo = -1
+            for y in range(int(self.begin.y), int(self.end.y), passo):
+                pixels.append(ponto(self.begin.x, y))
+            
+        return pixels
+    
+    def GetPixelsWithY(self, pixels, ca):
+        ca_x = 1/ca * (abs(ca)/ca)
+        x = self.begin.x
+        if self.end.y - self.begin.y < 0:
+            if ca < 0:
+                ca_x = -ca_x
+            for y in range(int(self.begin.y), int(self.end.y)-1,-1):
+                if not(pixels[-1].x == x and pixels[-1].y == y):
+                    pixels.append(ponto(round(x), y))
+                x -= ca_x
+        else:
+            for y in range(int(self.begin.y), int(self.end.y)):
+                if not(pixels[-1].x == x and pixels[-1].y == y):
+                    pixels.append(ponto(round(x), y))
+                x += ca_x
+        pixels.append(self.end)
+        return pixels
+    
+    def SpecialCase(self, pixels, ca):
+        v = self.begin.y
+        if self.end.x - self.begin.x < 0:
+            inverted = [self.end]
+            for u in range(int(self.begin.x)-1, int(self.end.x), -1):
+                if(not(inverted[-1].x == u and inverted[-1].y == round(v))):
+                    inverted.append(ponto(u, round(v)))
+                v -= ca
+            inverted.reverse()
+            for i in inverted:
+                pixels.append(i)
+        else:
+            for u in range(int(self.begin.x), int(self.end.x) + 1):
+                if(not(pixels[-1].x == u and pixels[-1].y == round(v))):
+                    pixels.append(ponto(u, round(v)))
+                v += ca
+        return pixels
+        
+    def GetLinePixels(self):            
+        ca = self.GetAngularCoef()
+        print(f"Coeficiente Angular do ponto {self.begin.x} {self.begin.y} a {self.end.x} {self.end.y} eh {ca}")
+        pixels = [self.begin]
+        if abs(ca) > 0 and abs(ca) <= 1:
+            pixels = self.SpecialCase(pixels, ca)
+        elif abs(ca) > 1:
+            pixels = self.GetPixelsWithY(pixels, ca)
+        else:
+            pixels = self.GetPixelsStraight(pixels, ca)
+            pass
+        return pixels
+    
+    def Draw(self, color):
+        pixels = self.GetLinePixels()
+        for p in pixels:
+            gpu.GPU.set_pixel(int(p.x), int(p.y), int(color[0]*255),int(color[1]*255) ,int(color[2]*255))
+            
+    
+
+class triangle():
+    """  
+    Classe que vai representar um triangulo, os vertices DEVEM ser passados de forma a ser percorrido no sentido anti-horario,
+    isso pois a normal ira sempre estar apontando para o lado de fora
+    
+    """
+    def __init__(self, Vertices):
+        self.corners = Vertices
+        
+    def isInside(self, ponto):
+        d1 = segmento(self.corners[0], self.corners[1]).GetSign(ponto)
+        d2 = segmento(self.corners[1], self.corners[2]).GetSign(ponto)
+        d3 = segmento(self.corners[2], self.corners[0]).GetSign(ponto)
+        
+        
+        return  not(((d1 < 0) or (d2 < 0) or (d3 < 0)) and ((d1 > 0) or (d2 > 0) or (d3 > 0)))
+    
+    def GetSquareCorners(self):
+        minx = min(self.corners[0].x,self.corners[1].x,self.corners[2].x)
+        maxx = max(self.corners[0].x,self.corners[1].x,self.corners[2].x)
+        miny = min(self.corners[0].y,self.corners[1].y,self.corners[2].y)
+        maxy = max(self.corners[0].y,self.corners[1].y,self.corners[2].y)
+        return int(minx), int(maxx), int(miny), int(maxy)
+    
+    def Fill(self, color):
+        minx, maxx, miny, maxy = self.GetSquareCorners()
+        for y in range(miny, maxy):
+            for x in range(minx, maxx):
+                p = ponto(x,y)
+                if(self.isInside(p)):
+                    p.Info()
+                    gpu.GPU.set_pixel(int(p.x), int(p.y), int(color[0]*255),int(color[1]*255) ,int(color[2]*255))
+
+    def Draw(self, color):
+        segmento(self.corners[0], self.corners[1]).Draw(color)
+        segmento(self.corners[1], self.corners[2]).Draw(color)
+        segmento(self.corners[2], self.corners[0]).Draw(color)
+        self.Fill(color)
 # web3d.org/documents/specifications/19775-1/V3.0/Part01/components/geometry2D.html#Polypoint2D
 def polypoint2D(point, colors):
     """Função usada para renderizar Polypoint2D."""
@@ -26,22 +164,9 @@ def polypoint2D(point, colors):
     # pelo tamanho da lista e assuma que sempre vira uma quantidade par de valores.
     # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polypoint2D
     # você pode assumir o desenho dos pontos com a cor emissiva (emissiveColor).
-    points = []
-    print(list(colors.values()))
-    i = 0
-    while i < len(point):
-        points.append(ponto(point[i], point[i+1]))
-        i+=2
+    points = CollectPoints(point)
     for p in points:
-        print(p.x,p.y)
         gpu.GPU.set_pixel(int(p.x), int(p.y), int(colors["emissiveColor"][0]*255),int(colors["emissiveColor"][1]*255) ,int(colors["emissiveColor"][2]*255))
-
-    # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-    # print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
-    # print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
-    # Exemplo:
-    # gpu.GPU.set_pixel(3, 1, 255, 0, 0) # altera um pixel da imagem (u, v, r, g, b)
-    # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
 
 # web3d.org/documents/specifications/19775-1/V3.0/Part01/components/geometry2D.html#Polyline2D
 def polyline2D(lineSegments, colors):
@@ -55,13 +180,11 @@ def polyline2D(lineSegments, colors):
     # vira uma quantidade par de valores.
     # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polyline2D
     # você pode assumir o desenho das linhas com a cor emissiva (emissiveColor).
-
-    print("Polyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
-    print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
-    # Exemplo:
-    pos_x = gpu.GPU.width//2
-    pos_y = gpu.GPU.height//2
-    gpu.GPU.set_pixel(pos_x, pos_y, 255, 0, 0) # altera um pixel da imagem (u, v, r, g, b)
+    points = CollectPoints(lineSegments)
+    i = 0
+    while i < len(points):
+        segmento(points[i], points[i+1]).Draw(colors["emissiveColor"])
+        i+=2
 
 # web3d.org/documents/specifications/19775-1/V3.0/Part01/components/geometry2D.html#TriangleSet2D
 def triangleSet2D(vertices, colors):
@@ -73,10 +196,16 @@ def triangleSet2D(vertices, colors):
     # quantidade de pontos é sempre multiplo de 3, ou seja, 6 valores ou 12 valores, etc.
     # O parâmetro colors é um dicionário com os tipos cores possíveis, para o TriangleSet2D
     # você pode assumir o desenho das linhas com a cor emissiva (emissiveColor).
-    print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
-    print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
-    # Exemplo:
-    gpu.GPU.set_pixel(24, 8, 255, 255, 0) # altera um pixel da imagem (u, v, r, g, b)
+    vertice_list = CollectPoints(vertices)
+    print(vertice_list)
+    triangles = []
+    i = 0
+    while i < len(vertice_list):
+        triangles.append(triangle([vertice_list[i], vertice_list[i+1], vertice_list[i+2]]))
+        i+= 3
+    
+    for t in triangles:
+        t.Draw(colors["emissiveColor"])
 
 def triangleSet(point, colors):
     """Função usada para renderizar TriangleSet."""
