@@ -154,6 +154,7 @@ class triangle():
         segmento(self.corners[1], self.corners[2]).Draw(color)
         segmento(self.corners[2], self.corners[0]).Draw(color)
         self.Fill(color)
+
 # web3d.org/documents/specifications/19775-1/V3.0/Part01/components/geometry2D.html#Polypoint2D
 def polypoint2D(point, colors):
     """Função usada para renderizar Polypoint2D."""
@@ -348,3 +349,7 @@ def indexedFaceSet(coord, coordIndex, colorPerVertex, color, colorIndex,
         image = gpu.GPU.load_texture(current_texture[0])
         print("\t Matriz com image = {0}".format(image))
     print("IndexedFaceSet : colors = {0}".format(colors)) # imprime no terminal as cores
+    print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
+    print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
+    # Exemplo:
+    gpu.GPU.set_pixel(24, 8, 255, 255, 0) # altera um pixel da imagem (u, v, r, g, b)
